@@ -1,0 +1,11 @@
+{
+    "roles_id": [],
+    "blacklist": "disabled",
+    "blacklist_logs": null,
+    "blacklist_objects": [],
+    "warning_message": "{player_name}, you are using a blacklisted vehicle. Please stop using it, otherwise you will be banned.",
+    "max_warnings": 2,
+    "ban_message": "You have been banned by BRSM v0.1.0 | https://discord.gg/Wnm5UEZHxR",
+    "ban_duration": "infinite",
+    "auto_restart_after_100_rounds": "disabled"
+}
