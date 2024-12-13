@@ -1,7 +1,9 @@
-import discord, pyautogui, pyperclip, psutil, asyncio, json, os, re, cv2
+import discord, pyautogui, pyperclip, psutil, asyncio, json, os, re, cv2, mss
 import pygetwindow as gw
 import numpy as np
 from PIL import ImageGrab
+from PIL import Image
+from io import BytesIO
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -29,21 +31,21 @@ async def on_ready():
     commands_list = [f'/{command.name}' for command in bot.tree.get_commands()]
     print(f'📜 - Commands: {", ".join(commands_list)}')
     
-    activity = discord.Activity(type=discord.ActivityType.listening, name="/help | BRSM v0.1.0")
+    activity = discord.Activity(type=discord.ActivityType.listening, name="/help | BRSM v0.2.0")
     await bot.change_presence(status=discord.Status.online, activity=activity)
-    print(f'🤖 - BRSM v0.1.0 | Support server: https://discord.gg/Wnm5UEZHxR')
+    print(f'🤖 - BRSM v0.2.0 | Support server: https://discord.gg/Wnm5UEZHxR')
 
 # ====[ CONFIG ]================================================================================================================
 default_config = {
     "roles_id": [],
-    "blacklist": "disabled",
+    "blacklist": False,
     "blacklist_logs": None,
     "blacklist_objects": [],
-    "warning_message": "{player_name}, you are using a blacklisted vehicle. Please stop using it, otherwise you will be banned.",
-    "max_warnings": 2,
-    "ban_message": "You have been banned by BRSM v0.1.0 | https://discord.gg/Wnm5UEZHxR",
     "ban_duration": "infinite",
-    "auto_restart_after_100_rounds": "disabled"
+    "ban_message": "You have been banned by BRSM v0.2.0 | https://discord.gg/Wnm5UEZHxR",
+    "max_warnings": 2,
+    "warning_message": "{player_name}, you are using a blacklisted vehicle. Please stop using it, otherwise you will be banned.",
+    "auto_restart": False
 }
 
 config_path = f"C:\\Users\\{os.getlogin()}\\AppData\\Local\\BrickRigs\\SavedRemastered\\Config\\WindowsNoEditor\\Game.ini"
@@ -66,11 +68,6 @@ def save_config():
         json.dump(config, file, indent=4, ensure_ascii=False)
 
 load_config()
-
-# ====[ ACTIVE WINDOW ]================================================================================================================
-def active_window():
-    window = gw.getWindowsWithTitle('Brick Rigs')
-    return window and window[0].isActive if window else False
 
 # ====[ CHECK ROLES ]================================================================================================================
 async def check_roles(interaction, bot):
@@ -97,14 +94,12 @@ async def close_brick_rigs(interaction: discord.Interaction):
         if process.info['name'] == 'BrickRigs-Win64-Shipping.exe':
             process.terminate()
             process.wait(timeout=10)
-
             closed = True
 
     if not closed:
         embed = discord.Embed(description="**⚠️・Brick Rigs was not active or could not be closed.**", color=0xffc633)
         await interaction.followup.send(embed=embed, ephemeral=True)
         return False
-
     return True
 
 # ====[ CLEAR CHAT LOGS ]================================================================================================================
@@ -117,6 +112,11 @@ def clear_chat_logs():
     with open(config_path, "w", encoding="utf-8") as file:
         file.writelines(lines_to_keep)
 
+# ====[ ACTIVE WINDOW ]================================================================================================================
+def active_window():
+    window = gw.getWindowsWithTitle('Brick Rigs')
+    return window and window[0].isActive if window else False
+
 # ====[ PRESS KEYS ]================================================================================================================
 async def press_keys(keys, delay=0.2):
     for key in keys:
@@ -126,11 +126,11 @@ async def press_keys(keys, delay=0.2):
 # ====[ HELP ]================================================================================================================
 @bot.tree.command(name="help", description="Bot info and more.")
 async def help(interaction: discord.Interaction):
-    embed = discord.Embed(title="Brick Rigs Server Management v0.1.0", color=0xff971a)
+    embed = discord.Embed(title="Brick Rigs Server Management v0.2.0", color=0xff971a)
 
     embed.add_field(
         name="🔧・Commands:",
-        value="```/settings, /game, /banned-list, /ban, /unban, /restart, /send-message, /auto-message, /blacklist```",
+        value="```/settings, /game, /configuration, /banned-list, /ban, /unban, /restart, /send-message, /auto-message, /blacklist```",
         inline=False
     )
 
@@ -141,7 +141,7 @@ async def help(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # ====[ SETTINGS ]================================================================================================================
-@bot.tree.command(name="settings", description="Bot configuration.") 
+@bot.tree.command(name="settings", description="Bot configuration and more.") 
 async def settings(interaction: discord.Interaction):
     required_roles = config.get("roles_id", [])
 
@@ -252,10 +252,10 @@ async def toggle_blacklist(interaction: discord.Interaction):
     view = discord.ui.View(timeout=None)
 
     async def dropdown_callback(interaction: discord.Interaction):
-        config["blacklist"] = "enabled" if dropdown.values[0] == "enable" else "disabled"
+        config["blacklist"] = True if dropdown.values[0] == "enable" else False
         save_config()
         
-        await interaction.response.send_message(embed=discord.Embed(description=f"**✅・Blacklist has been {'enabled' if config['blacklist'] == 'enabled' else 'disabled'}.**", color=0x77ab00), ephemeral=True)
+        await interaction.response.send_message(embed=discord.Embed(description=f"**✅・Blacklist has been {'enabled' if config['blacklist'] else 'disabled'}.**", color=0x77ab00), ephemeral=True)
 
     dropdown = discord.ui.Select(
         placeholder="Select an option...",
@@ -284,15 +284,15 @@ async def toggle_auto_restart(interaction: discord.Interaction):
     view = discord.ui.View(timeout=None)
 
     async def dropdown_callback(interaction: discord.Interaction):
-        config["auto_restart_after_100_rounds"] = "enabled" if dropdown.values[0] == "enable" else "disabled"
+        config["auto_restart"] = True if dropdown.values[0] == "enable" else False
         save_config()
         
-        bot.auto_restart_after_100_rounds = config["auto_restart_after_100_rounds"] == "enabled"
+        bot.auto_restart = config["auto_restart"]
         
-        if bot.auto_restart_after_100_rounds:
+        if bot.auto_restart:
             bot.loop.create_task(scan_and_click())
         
-        await interaction.response.send_message(embed=discord.Embed(description=f"**✅・Auto restart has been {'enabled' if bot.auto_restart_after_100_rounds else 'disabled'}.**", color=0x77ab00),ephemeral=True)
+        await interaction.response.send_message(embed=discord.Embed(description=f"**✅・Auto restart has been {'enabled' if bot.auto_restart else 'disabled'}.**", color=0x77ab00),ephemeral=True)
 
     dropdown = discord.ui.Select(
         placeholder="Select an option...",
@@ -312,8 +312,8 @@ image_folder = "./imgs"
 threshold = 0.8
 
 async def setup_auto_restart():
-    bot.auto_restart_after_100_rounds = config.get("auto_restart_after_100_rounds") == "enabled"
-    if bot.auto_restart_after_100_rounds:
+    bot.auto_restart = config.get("auto_restart", False)
+    if bot.auto_restart:
         bot.loop.create_task(scan_and_click())
 
 def grab_screenshot():
@@ -335,7 +335,7 @@ def click_on_location(x, y, w, h):
     pyautogui.click()
 
 async def scan_and_click():
-    while config.get("auto_restart_after_100_rounds") == "enabled":
+    while config.get("auto_restart", False):
         screenshot = grab_screenshot()
         
         for filename in os.listdir(image_folder):
@@ -428,6 +428,167 @@ async def game(interaction: discord.Interaction):
     dropdown_view.add_item(GameModeDropdown())
 
     await interaction.response.send_message(embed=game_embed, view=dropdown_view, ephemeral=True)
+
+# ====[ CONFIGURATION ]================================================================================================================
+@bot.tree.command(name="configuration", description="Allows you to manage all server settings, and much more if you figure it out.")
+async def configuration(interaction: discord.Interaction):
+    if not await check_roles(interaction, bot):
+        return
+    
+    embed = discord.Embed(description="**🚧・Important! If you are currently using the auto message/auto restart/blacklist feature, it is recommended to disable it.**", color=0xffc633)
+    button_view = ConfigurationView()
+    
+    await interaction.response.send_message(embed=embed, view=button_view, ephemeral=True)
+
+class ConfigurationView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+
+        proceed_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.secondary)
+        proceed_button.callback = self.proceed_button_callback
+        self.add_item(proceed_button)
+
+    async def proceed_button_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True, ephemeral=True)
+
+        try:
+            screenshot_view = ScreenshotView()
+            screenshot = screenshot_view.get_screenshot_from_window("Brick Rigs")
+
+            if screenshot:
+                with BytesIO() as img_bytes:
+                    screenshot.save(img_bytes, format="PNG")
+                    img_bytes.seek(0)
+                    await interaction.followup.send(file=discord.File(fp=img_bytes, filename="screenshot.png"), view=screenshot_view, ephemeral=True)
+            else:
+                embed = discord.Embed(description="**❌・Failed to take a screenshot.**", color=0xd94930)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            embed = discord.Embed(description=f"**❌・An error occurred:** \n```{str(e)}```", color=0xd94930)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+# ====[ CONFIGURATION SYSTEM ]================================================================================================================
+class TextInputModal(discord.ui.Modal, title="Text"):
+    text_input = discord.ui.TextInput(
+        label="Enter text:",
+        style=discord.TextStyle.long,
+        required=False
+    )
+
+    empty_input = discord.ui.TextInput(
+        label="Info:",
+        default="If you want to remove all the text from the field just don't type anything and click submit button.\n\nAbout the character limit:\n- Server Password: 16\n- Server Name: 64\n- Server Description: 2048",
+        style=discord.TextStyle.long,
+        required=False
+    )
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback_func = callback
+
+    async def on_submit(self, interaction: discord.Interaction):
+        text_to_paste = self.text_input.value
+
+        if not text_to_paste.strip():
+            pyautogui.hotkey("ctrl", "a")
+            pyautogui.hotkey("ctrl", "c")
+            
+            copied_text = pyperclip.paste()
+
+            embed = discord.Embed(description=f"**✅・Field has been cleared successfully:** \n```{copied_text}```", color=0x77ab00)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            pyautogui.press("backspace")  
+            return
+        
+        pyperclip.copy(text_to_paste)
+        pyautogui.hotkey("ctrl", "v")
+        await self.callback_func(interaction, text_to_paste)
+
+class ScreenshotView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.message = None
+
+        self.add_item(discord.ui.Button(label="ㅤ", style=discord.ButtonStyle.secondary, custom_id="empty_button", row=0))
+        self.add_item(discord.ui.Button(label="↑", style=discord.ButtonStyle.primary, custom_id="move_up", row=0))
+        self.add_item(discord.ui.Button(label="ㅤ", style=discord.ButtonStyle.secondary, custom_id="empty_button2", row=0))
+
+        self.add_item(discord.ui.Button(label="←", style=discord.ButtonStyle.primary, custom_id="move_left", row=1))
+        self.add_item(discord.ui.Button(label="↓", style=discord.ButtonStyle.primary, custom_id="move_down", row=1))
+        self.add_item(discord.ui.Button(label="→", style=discord.ButtonStyle.primary, custom_id="move_right", row=1))
+
+        self.add_item(discord.ui.Button(label="Esc", style=discord.ButtonStyle.danger, custom_id="press_esc", row=2))
+        self.add_item(discord.ui.Button(label="Tab", style=discord.ButtonStyle.secondary, custom_id="press_tab", row=2))
+        self.add_item(discord.ui.Button(label="Enter", style=discord.ButtonStyle.success, custom_id="press_enter", row=2))
+        self.add_item(discord.ui.Button(label="Enter Text", style=discord.ButtonStyle.primary, custom_id="enter_text", row=2))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.data["custom_id"] in ["empty_button", "empty_button2"]:
+            return False
+
+        actions = {
+            "move_up": "up",
+            "move_down": "down",
+            "move_left": "left",
+            "move_right": "right",
+            "press_esc": "esc",
+            "press_tab": "tab",
+            "press_enter": "enter"
+        }
+
+        if interaction.data["custom_id"] in actions:
+            pyautogui.press(actions[interaction.data["custom_id"]])
+        elif interaction.data["custom_id"] == "enter_text":
+            modal = TextInputModal(self.on_modal_submit)
+            await interaction.response.send_modal(modal)
+            return True
+
+        await self.send_screenshot(interaction)
+        return True
+
+    async def on_modal_submit(self, interaction: discord.Interaction, text: str):
+        embed = discord.Embed(description=f"**✅・Text successfully pasted:** ```\n{text}```", color=0x77ab00)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await self.send_screenshot(interaction, defer=False)
+
+    def get_screenshot_from_window(self, window_title: str):
+        windows = gw.getWindowsWithTitle(window_title)
+        if not windows:
+            raise Exception(f"Could not find a {window_title} window.")
+
+        window = windows[0]
+        window.activate()
+
+        with mss.mss() as sct:
+            monitor = {
+                "top": window.top,
+                "left": window.left,
+                "width": window.width,
+                "height": window.height
+            }
+            screenshot = sct.grab(monitor)
+            return Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+
+    async def send_screenshot(self, interaction: discord.Interaction, defer=True):
+        try:
+            if defer:
+                await interaction.response.defer()
+            screenshot = self.get_screenshot_from_window("Brick Rigs")
+
+            if screenshot:
+                with BytesIO() as img_bytes:
+                    screenshot.save(img_bytes, format="PNG")
+                    img_bytes.seek(0)
+                    await interaction.followup.send(file=discord.File(fp=img_bytes, filename="screenshot.png"), view=self, ephemeral=True)
+            else:
+                embed = discord.Embed(description="**❌・Failed to take a screenshot.**", color=0xd94930)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            embed = discord.Embed(description=f"**❌・An error occurred:** \n```{str(e)}```", color=0xd94930)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 # ====[ BANNED LIST ]================================================================================================================
 @bot.tree.command(name="banned-list", description="Shows the list of banned players.")
@@ -940,7 +1101,7 @@ async def blacklist(interaction: discord.Interaction):
 
     blacklist_status = config.get("blacklist")
 
-    if blacklist_status != "enabled":
+    if not blacklist_status:
         embed = discord.Embed(description="**⚠️・Blacklist is disabled. Enable it in: /settings > Toggle Blacklist.**", color=0xffc633)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
@@ -1042,7 +1203,7 @@ async def monitor_game_log():
     while True:
         blacklist_status = config.get("blacklist")
 
-        if blacklist_status != "enabled":
+        if not blacklist_status:
             await asyncio.sleep(5)
             continue
 
@@ -1345,7 +1506,7 @@ class BanMessageModal(discord.ui.Modal):
             style=discord.TextStyle.long,
             label="Message:",
             max_length=100,
-            default=config.get("ban_message", "You have been banned by BRSM v0.1.0 | https://discord.gg/Wnm5UEZHxR"),
+            default=config.get("ban_message", "You have been banned by BRSM v0.2.0 | https://discord.gg/Wnm5UEZHxR"),
             required=True
         )
 
@@ -1382,7 +1543,7 @@ async def ban_duration_callback(interaction: discord.Interaction):
             config["ban_duration"] = selected_option
             save_config()
 
-            embed = discord.Embed(description=f"**✅・Successfully set ban duration to {self.value(selected_option)}.**",color=0x77ab00)
+            embed = discord.Embed(description=f"**✅・Successfully set ban duration to {self.value(selected_option)}.**", color=0x77ab00)
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
         def value(self, value: str):
