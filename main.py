@@ -126,7 +126,7 @@ async def press_keys(keys, delay=0.2):
 # ====[ HELP ]================================================================================================================
 @bot.tree.command(name="help", description="Bot info and more.")
 async def help(interaction: discord.Interaction):
-    embed = discord.Embed(title="Brick Rigs Server Management v0.2.0", color=0xff971a)
+    embed = discord.Embed(title="Brick Rigs Server Management v0.3.0", color=0xff971a)
 
     embed.add_field(
         name="🔧・Commands:",
@@ -1519,7 +1519,7 @@ class BanMessageModal(discord.ui.Modal):
             style=discord.TextStyle.long,
             label="Message:",
             max_length=100,
-            default=config.get("ban_message", "You have been banned by BRSM v0.2.0 | https://discord.gg/Wnm5UEZHxR"),
+            default=config.get("ban_message", "You have been banned by BRSM v0.3.0 | https://discord.gg/Wnm5UEZHxR"),
             required=True
         )
 
