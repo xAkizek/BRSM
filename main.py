@@ -200,36 +200,49 @@ async def allowed_roles(interaction: discord.Interaction):
 
     selected_roles = config.get("roles_id", [])
 
-    role_options = [
-        discord.SelectOption(label=role.name, value=str(role.id), default=str(role.id) in map(str, selected_roles))
-        for role in interaction.guild.roles if role.name != "@everyone"
-    ][::-1][:25]
+    valid_roles = [role for role in interaction.guild.roles if role.name != "@everyone"]
 
-    if not role_options:
+    if not valid_roles:
         embed.description = "**🚧・No roles available. Please add roles to the server.**"
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    role_select = discord.ui.Select(placeholder="Select roles...", options=role_options, min_values=0, max_values=25)
+    role_options = []
+    for role in valid_roles[::-1]:
+        if len(role_options) >= 25:
+            break
+        if len(role.name) <= 100:
+            role_options.append(discord.SelectOption(
+                label=role.name,
+                value=str(role.id),
+                default=str(role.id) in map(str, selected_roles)
+            ))
+
+    if not role_options:
+        embed.description = "**🚧・No valid roles available.**"
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    role_select = discord.ui.Select(
+        placeholder="Select roles...",
+        options=role_options,
+        min_values=0,
+        max_values=len(role_options)
+    )
 
     async def role_select_callback(interaction: discord.Interaction):
         selected_role_id = [int(role_id) for role_id in role_select.values]
 
-        if selected_role_id:
-            config["roles_id"] = selected_role_id
-            save_config()
+        config["roles_id"] = selected_role_id
+        save_config()
 
+        if selected_role_id:
             added_roles = ", ".join([f"<@&{role_id}>" for role_id in selected_role_id])
             success_embed = discord.Embed(description=f"**✅・Successfully added roles: {added_roles}.**", color=0x77ab00)
-
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
-
         else:
-            config["roles_id"] = []
-            save_config()
-
             success_embed = discord.Embed(description="**✅・Successfully removed all roles.**", color=0x77ab00)
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+
+        await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
     role_select.callback = role_select_callback
 
