@@ -31,9 +31,9 @@ async def on_ready():
     commands_list = [f'/{command.name}' for command in bot.tree.get_commands()]
     print(f'📜 - Commands: {", ".join(commands_list)}')
     
-    activity = discord.Activity(type=discord.ActivityType.listening, name="/help | BRSM v0.2.0")
+    activity = discord.Activity(type=discord.ActivityType.listening, name="/help | BRSM v0.3.0")
     await bot.change_presence(status=discord.Status.online, activity=activity)
-    print(f'🤖 - BRSM v0.2.0 | Support server: https://discord.gg/Wnm5UEZHxR')
+    print(f'🤖 - BRSM v0.3.0 | Support server: https://discord.gg/Wnm5UEZHxR')
 
 # ====[ CONFIG ]================================================================================================================
 default_config = {
@@ -42,7 +42,7 @@ default_config = {
     "blacklist_logs": None,
     "blacklist_objects": [],
     "ban_duration": "infinite",
-    "ban_message": "You have been banned by BRSM v0.2.0 | https://discord.gg/Wnm5UEZHxR",
+    "ban_message": "You have been banned by BRSM v0.3.0 | https://discord.gg/Wnm5UEZHxR",
     "max_warnings": 2,
     "warning_message": "{player_name}, you are using a blacklisted vehicle. Please stop using it, otherwise you will be banned.",
     "auto_restart": False
