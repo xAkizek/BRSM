@@ -4,7 +4,7 @@
     "blacklist_logs": null,
     "blacklist_objects": [],
     "ban_duration": "infinite",
-    "ban_message": "You have been banned by BRSM v0.2.0 | https://discord.gg/Wnm5UEZHxR",
+    "ban_message": "You have been banned by BRSM v0.3.0 | https://discord.gg/Wnm5UEZHxR",
     "max_warnings": 2,
     "warning_message": "{player_name}, you are using a blacklisted vehicle. Please stop using it, otherwise you will be banned.",
     "auto_restart": false
